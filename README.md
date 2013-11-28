@@ -13,7 +13,7 @@
 	
 	(sched-add *scheduler* (+ 4 (now)) #'task-function args...) ;insert task to scheduer queue with time
 	
-	(sched-clear *scheduler*) ;clear scheduler queue
+	(sched-clear *scheduler*) ;clear to scheduler queue
 	
 	(sched-stop *scheduler*) ;stop scheduler
 
@@ -32,8 +32,8 @@ default 'ahead time' is 0.3 seconds. so this codes are execute after 3.7 seconds
 You can get/set to ahead value of scheduler object by **#'ahead** accessor. 
 
 #### API for main-scheduler:
-By default, this scheduler library include **\*main-scheduler\***. This API are functions for only **\*main-scheduler\***.  
-Unless you needs multiple scheduler, I recommend to use **\*main-scheduler\*** with this API.
+By default, this scheduler library include __\*main-scheduler\*__. This API are functions for only __\*main-scheduler\*__.  
+Unless you needs multiple scheduler, I recommend to use __\*main-scheduler\*__ with this API.
 
 	(scheduler-start) ;start the *main-scheduler*
 
