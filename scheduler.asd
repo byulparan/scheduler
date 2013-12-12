@@ -9,5 +9,5 @@
   :components ((:file "package") 
 	       #+windows (:file "threads-windows")
 	       #-windows (:file "threads-posix")
-	       (:file "timer")
-	       (:file "scheduler"))) 
+	       (:file "scheduler")
+	       (:file "sync"))) 

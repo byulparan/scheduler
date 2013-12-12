@@ -19,5 +19,10 @@
 	   #:scheduler-clear
 	   #:scheduler-stop
 
-	   #:set-timer-func
-	   #:now))
+	   #:now
+
+	   #:make-sync-tool
+	   #:destroy-sync-tool
+	   #:offset
+
+	   #:quant))

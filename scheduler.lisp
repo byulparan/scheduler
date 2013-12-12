@@ -1,5 +1,11 @@
 (in-package #:scheduler)
 
+(defun now ()
+  #+ccl (* 1.0d-9 (ccl:current-time-in-nanoseconds))
+  #+sbcl (multiple-value-bind (secs usecs)
+	     (sb-ext:get-time-of-day)
+	   (+ secs (* usecs 1.0d-6))))
+
 (defstruct node :timestamp :task)
 
 (defclass scheduler ()
