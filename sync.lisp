@@ -9,7 +9,7 @@
   (:documentation "Each Application, Library have unique timestamp. sync-tool object used
  synchronize between #'now and other timestamp."))
 
-(defun make-sync-tool (base-time-function)
+(defun make-sync-tool (base-time-function &optional (thread-name "time-sync thread"))
   "Creates a sync-tool which synchronized to base-time-function. base-time-function must based on seconds."
   (let ((sync-tool (make-instance 'sync-tool)))
     (setf (sync-thread sync-tool)
@@ -26,7 +26,7 @@
 		       (setf min-diff diff)
 		       (setf (offset sync-tool) (- base (+ before (* diff .5))))))))
 	       (sleep 20)))
-	   :name "time-sync thread"))
+	   :name thread-name))
     sync-tool))
 
 (defun destroy-sync-tool (sync-tool)
