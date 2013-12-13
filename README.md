@@ -3,7 +3,7 @@
 
 #### require:
   - [Quicklisp](http://www.quicklisp.org)
-  - [ClozureCL](http://www.clozure.com/clozurecl.html) or [SBCL](http://www.sbcl.org)
+  - [ClozureCL](http://www.clozure.com/clozurecl.html) or [SBCL](http://www.sbcl.org) or [ECL](http://ecls.sourceforge.net)
   
 #### usage:
 

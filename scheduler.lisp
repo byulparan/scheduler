@@ -4,7 +4,7 @@
 
 (defclass scheduler ()
   ((mutex :reader mutex)
-   (condition-var :initform (bt:make-condition-variable) :reader condition-var)
+   (condition-var :initform (bt-sem:make-semaphore) :reader condition-var)
    (in-queue :initform (pileup:make-heap #'< :size 100 :key #'node-timestamp) :reader in-queue)
    (sched-thread :initform nil :accessor sched-thread)
    (status :initform :stop :accessor status)
@@ -13,24 +13,22 @@
 (defmethod initialize-instance :after ((self scheduler) &key)
   ;;; pilep:heap include lock. so scheduler use that lock.
   (with-slots (mutex in-queue) self
-    (setf mutex (slot-value in-queue 'pileup::lock))))
+    #-ecl(setf mutex (slot-value in-queue 'pileup::lock))
+    #+ecl (setf mutex (bt:make-recursive-lock))))
 
 
 ;;; timed wait -----------------------------------------------------------------------------------------
 ;;; bordeaux-threads not support timed wait for condition variable.
+;;; so, I use bt-semaphore, but, bordeaux-threads support condition-wait with timeout, soon...
+(defun condition-wait (condition-variable lock)
+  (bt:release-lock lock)
+  (unwind-protect (bt-sem:wait-on-semaphore condition-variable)
+    (bt:acquire-lock lock t)))
 
-#+ccl
 (defun condition-timed-wait (condition-variable lock time)
-  (when (plusp time)
-    (bt:release-lock lock)
-    (prog1 (ccl:timed-wait-on-semaphore condition-variable time)
-      (bt:acquire-lock lock))))
-
-#+sbcl
-(defun condition-timed-wait (condition-variable lock time)
-  (let ((result (sb-thread:condition-wait condition-variable lock :timeout time)))
-    (unless result (sb-thread:grab-mutex lock))
-    result))
+  (bt:release-lock lock)
+  (unwind-protect (bt-sem:wait-on-semaphore condition-variable :timeout time)
+    (bt:acquire-lock lock t)))
 
 ;;; -----------------------------------------------------------------------------------------------------
 
@@ -48,7 +46,7 @@
 		      (handler-case
 			  (loop
 			    (loop :while (pileup:heap-empty-p (in-queue scheduler))
-				  :do (bt:condition-wait (condition-var scheduler) (mutex scheduler)))
+				  :do (condition-wait (condition-var scheduler) (mutex scheduler)))
 			    (loop :while (not (pileup:heap-empty-p (in-queue scheduler)))
 				  :do (let ((timestamp (node-timestamp (pileup:heap-top (in-queue scheduler)))))
 					(when (>= 0.001 (- timestamp (now))) (return)) 
@@ -70,9 +68,9 @@
 
 (defmacro with-condition-lock ((scheduler) &body body)
   `(if *in-sched* (progn ,@body)
-       (bt:with-lock-held ((mutex ,scheduler))
+       (bt:with-recursive-lock-held ((mutex ,scheduler))
 	 ,@body
-	 (bt:condition-notify (condition-var ,scheduler)))))
+	 (bt-sem:signal-semaphore (condition-var ,scheduler)))))
 
 (defun sched-add (scheduler time f &rest args)
   "Insert task and time-info to scheduler queue. scheduler have ahead of time value(default to 0.3).

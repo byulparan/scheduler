@@ -4,7 +4,7 @@
   :author "Park Sungmin. byulparan@icloud.com"
   :description "The Time Based Task Scheduler"
   :version "0.1"
-  :depends-on (#:bordeaux-threads #:pileup #-windows #:cffi)
+  :depends-on (#:bordeaux-threads #:bt-semaphore #:pileup #:cffi)
   :serial t
   :components ((:file "package") 
 	       #+windows (:file "threads-windows")
