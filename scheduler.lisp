@@ -1,6 +1,6 @@
 (in-package #:scheduler)
 
-(defstruct node :timestamp :task)
+(defstruct node timestamp task)
 
 (defclass scheduler ()
   ((mutex :reader mutex)
@@ -49,7 +49,7 @@
 				  :do (condition-wait (condition-var scheduler) (mutex scheduler)))
 			    (loop :while (not (pileup:heap-empty-p (in-queue scheduler)))
 				  :do (let ((timestamp (node-timestamp (pileup:heap-top (in-queue scheduler)))))
-					(when (>= 0.001 (- timestamp (now))) (return)) 
+					(when (>= 0.001 (- timestamp (now))) (return))
 					(condition-timed-wait (condition-var scheduler) (mutex scheduler) (- timestamp (now)))))
 			    (loop :while (and (not (pileup:heap-empty-p (in-queue scheduler)))
 					      (>= (now) (node-timestamp (pileup:heap-top (in-queue scheduler)))))
