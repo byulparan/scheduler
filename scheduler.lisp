@@ -5,7 +5,7 @@
 (defclass scheduler ()
   ((mutex :reader mutex)
    (condition-var :initform (bt-sem:make-semaphore) :reader condition-var)
-   (in-queue :initform (pileup:make-heap #'< :size 100 :key #'node-timestamp) :reader in-queue)
+   (in-queue :initform (pileup:make-heap #'<= :size 100 :key #'node-timestamp) :reader in-queue)
    (sched-thread :initform nil :accessor sched-thread)
    (status :initform :stop :accessor status)
    (ahead :initarg :ahead :initform .3 :accessor ahead)))
@@ -37,33 +37,32 @@
  so this variable used for check to current thread == scheduler thread.")
 
 (defun sched-run (scheduler)
-  (when (eql (status scheduler) :running)
-    (error "scheduler already running"))
-  (setf (sched-thread scheduler)
-	(bt:make-thread
-	 (lambda ()
-	   (labels ((run ()
-		      (handler-case
-			  (loop
-			    (loop :while (pileup:heap-empty-p (in-queue scheduler))
-				  :do (condition-wait (condition-var scheduler) (mutex scheduler)))
-			    (loop :while (not (pileup:heap-empty-p (in-queue scheduler)))
-				  :do (let ((timestamp (node-timestamp (pileup:heap-top (in-queue scheduler)))))
-					(when (>= 0.001 (- timestamp (now))) (return))
-					(condition-timed-wait (condition-var scheduler) (mutex scheduler) (- timestamp (now)))))
-			    (loop :while (and (not (pileup:heap-empty-p (in-queue scheduler)))
-					      (>= (now) (node-timestamp (pileup:heap-top (in-queue scheduler)))))
-				  :do (funcall (node-task (pileup:heap-pop (in-queue scheduler))))))
-			(error (c) (format t "~&Error \"~a\" in scheduler thread~%" c)
-			  (run)))))
-	     (set-real-time-thread-priority) 	;thread-boost!!
-	     (bt:with-lock-held ((mutex scheduler))
-	       (let ((*in-sched* t))
-		 (setf (status scheduler) :running)
-		 (sched-clear scheduler)
-		 (run)))))
-	 :name "scheduler thread"))
-  (values))
+  (when (eql (status scheduler) :stop)
+    (setf (sched-thread scheduler)
+	  (bt:make-thread
+	   (lambda ()
+	     (labels ((run ()
+			(handler-case
+			    (loop
+			      (loop :while (pileup:heap-empty-p (in-queue scheduler))
+				    :do (condition-wait (condition-var scheduler) (mutex scheduler)))
+			      (loop :while (not (pileup:heap-empty-p (in-queue scheduler)))
+				    :do (let ((timestamp (node-timestamp (pileup:heap-top (in-queue scheduler)))))
+					  (when (>= 0.001 (- timestamp (now))) (return))
+					  (condition-timed-wait (condition-var scheduler) (mutex scheduler) (- timestamp (now)))))
+			      (loop :while (and (not (pileup:heap-empty-p (in-queue scheduler)))
+						(>= (now) (node-timestamp (pileup:heap-top (in-queue scheduler)))))
+				    :do (funcall (node-task (pileup:heap-pop (in-queue scheduler))))))
+			  (error (c) (format t "~&Error \"~a\" in scheduler thread~%" c)
+			    (run)))))
+	       (set-real-time-thread-priority) ;thread-boost!!
+	       (bt:with-lock-held ((mutex scheduler))
+		 (let ((*in-sched* t))
+		   (setf (status scheduler) :running)
+		   (sched-clear scheduler)
+		   (run)))))
+	   :name "scheduler thread"))
+    :running))
 
 
 (defmacro with-condition-lock ((scheduler) &body body)
@@ -92,10 +91,9 @@
 (defun sched-stop (scheduler)
   "Stop the scheduler."
   (with-slots (sched-thread status) scheduler
-    (when (eql status :stop)
-      (error "scheduler not running"))
-    (bt:destroy-thread sched-thread)
-    (setf status :stop)))
+    (when (eql status :running)
+      (bt:destroy-thread sched-thread)
+      (setf status :stop))))
 
 
 
@@ -122,3 +120,5 @@
 
 (defun scheduler-stop ()
   (sched-stop *main-scheduler*))
+
+
