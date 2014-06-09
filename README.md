@@ -9,7 +9,7 @@
 
 #### timestamp:
 
-   Scheduler'timestamp using UNIX-time(since 1970.1.1) on all platform.
+   Scheduler's timestamp using UNIX-time(since 1970.1.1) on all platform.
 
 #### usage:
 
