@@ -1,10 +1,16 @@
 # Scheduler
 **The time based task scheduler for Common Lisp**
 
+#### version: 0.1.5
+
 #### require:
   - [Quicklisp](http://www.quicklisp.org)
   - [ClozureCL](http://www.clozure.com/clozurecl.html) or [SBCL](http://www.sbcl.org) or [ECL](http://ecls.sourceforge.net)
-  
+
+#### timestamp:
+
+   Scheduler using timestamp to UNIX-time(since 1970.1.1) on all platform.
+
 #### usage:
 
 	(defvar *scheduer* (make-instance 'scheduler :ahead ..)) ;make scheduler object

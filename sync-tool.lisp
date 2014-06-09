@@ -25,7 +25,7 @@
 		     (when (< diff min-diff)
 		       (setf min-diff diff)
 		       (setf (offset sync-tool) (- base (+ before (* diff .5))))))))
-	       (sleep 20)))
+	       (sleep 10)))
 	   :name thread-name))
     sync-tool))
 

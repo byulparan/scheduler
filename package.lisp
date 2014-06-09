@@ -20,8 +20,7 @@
 	   #:scheduler-stop
 
 	   #:now
-	   #:unix-time
-	   
+
 	   #:make-sync-tool
 	   #:destroy-sync-tool
 	   #:offset

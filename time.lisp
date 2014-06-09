@@ -1,11 +1,5 @@
 (in-package #:scheduler)
 
-#+(and darwin (not ccl))
-(progn
-  (cffi:define-foreign-library core-audio
-    (:darwin (:framework "CoreAudio")))
-  (cffi:use-foreign-library core-audio))
-
 #+sbcl
 (defun unix-time ()
   (multiple-value-bind (secs usecs)
@@ -38,8 +32,5 @@
       (gettimeofday tv (cffi::null-pointer))
       (+ (cffi:mem-ref tv 'time_t) (* (cffi:mem-ref tv 'seconds_t (cffi:foreign-type-size 'time_t)) 1.0d-6)))))
 
-
 (defun now ()
-  #+(and darwin ccl) (* 1.0d-9 (ccl:current-time-in-nanoseconds))
-  #+(and darwin (not ccl)) (* 1.0d-9 (cffi:foreign-funcall "AudioGetCurrentHostTime" :unsigned-long-long))
-  #-darwin (unix-time))
+  (unix-time))
