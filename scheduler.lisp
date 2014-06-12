@@ -3,32 +3,59 @@
 (defstruct node timestamp task)
 
 (defclass scheduler ()
-  ((mutex :reader mutex)
-   (condition-var :initform (bt-sem:make-semaphore) :reader condition-var)
-   (in-queue :initform (pileup:make-heap #'<= :size 100 :key #'node-timestamp) :reader in-queue)
-   (sched-thread :initform nil :accessor sched-thread)
-   (status :initform :stop :accessor status)
-   (ahead :initarg :ahead :initform .3 :accessor ahead)))
+  ((mutex
+    :reader mutex)
+   (condition-var
+    :initform #+ccl (ccl:make-semaphore)
+	      #+sbcl (sb-thread:make-semaphore)
+	      #+ecl(bt-sem:make-semaphore)
+    :reader condition-var)
+   (in-queue
+    :initform (pileup:make-heap #'<= :size 100 :key #'node-timestamp)
+    :reader in-queue)
+   (sched-thread
+    :initform nil
+    :accessor sched-thread)
+   (status
+    :initform :stop
+    :accessor status)
+   (ahead
+    :initarg :ahead
+    :initform .3
+    :accessor ahead)))
 
 (defmethod initialize-instance :after ((self scheduler) &key)
   ;;; pilep:heap include lock. so scheduler use that lock.
   (with-slots (mutex in-queue) self
     #-ecl(setf mutex (slot-value in-queue 'pileup::lock))
-    #+ecl (setf mutex (bt:make-recursive-lock))))
+    #+ecl(setf mutex (bt:make-recursive-lock))))
 
 
 ;;; timed wait -----------------------------------------------------------------------------------------
-;;; bordeaux-threads not support timed wait for condition variable.
-;;; so, I use bt-semaphore, but, bordeaux-threads support condition-wait with timeout, soon...
+
 (defun condition-wait (condition-variable lock)
   (bt:release-lock lock)
-  (unwind-protect (bt-sem:wait-on-semaphore condition-variable)
+  (unwind-protect
+       #+ccl (ccl:wait-on-semaphore condition-variable)
+    #+sbcl (sb-thread:wait-on-semaphore condition-variable)
+    #+ecl(bt-sem:wait-on-semaphore condition-variable)
     (bt:acquire-lock lock t)))
 
 (defun condition-timed-wait (condition-variable lock time)
   (bt:release-lock lock)
-  (unwind-protect (bt-sem:wait-on-semaphore condition-variable :timeout time)
+  (unwind-protect
+       #+ccl (ccl:timed-wait-on-semaphore condition-variable time)
+    #+sbcl (sb-thread:wait-on-semaphore condition-variable :timeout time)
+    #+ecl(bt-sem:wait-on-semaphore condition-variable :timeout time)
     (bt:acquire-lock lock t)))
+
+(defmacro with-condition-lock ((scheduler) &body body)
+  `(if *in-sched* (progn ,@body)
+       (bt:with-recursive-lock-held ((mutex ,scheduler))
+	 ,@body
+	 #+ccl (ccl:signal-semaphore (condition-var ,scheduler))
+	 #+sbcl (sb-thread:signal-semaphore (condition-var ,scheduler))
+	 #+ecl(bt-sem:signal-semaphore (condition-var ,scheduler)))))
 
 ;;; -----------------------------------------------------------------------------------------------------
 
@@ -63,13 +90,6 @@
 		   (run)))))
 	   :name "scheduler thread"))
     :running))
-
-
-(defmacro with-condition-lock ((scheduler) &body body)
-  `(if *in-sched* (progn ,@body)
-       (bt:with-recursive-lock-held ((mutex ,scheduler))
-	 ,@body
-	 (bt-sem:signal-semaphore (condition-var ,scheduler)))))
 
 (defun sched-add (scheduler time f &rest args)
   "Insert task and time-info to scheduler queue. scheduler have ahead of time value(default to 0.3).
