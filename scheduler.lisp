@@ -3,12 +3,15 @@
 (defstruct node timestamp task)
 
 (defclass scheduler ()
-  ((mutex
+  ((name
+    :initarg :name
+    :initform nil
+    :reader sched-name)
+   (mutex
     :reader mutex)
    (condition-var
-    :initform #+ccl (ccl:make-semaphore)
-	      #+sbcl (sb-thread:make-semaphore)
-	      #+ecl(bt-sem:make-semaphore)
+    :initform #-ecl (bt:make-condition-variable)
+	      #+ecl (bt-sem:make-semaphore)
     :reader condition-var)
    (in-queue
     :initform (pileup:make-heap #'<= :size 100 :key #'node-timestamp)
@@ -18,53 +21,58 @@
     :accessor sched-thread)
    (status
     :initform :stop
-    :accessor status)
+    :accessor sched-status)
    (ahead
-    :initarg :ahead
+    :initarg :sched-ahead
     :initform .3
-    :accessor ahead)))
+    :accessor sched-ahead)
+   (timestamp
+    :initarg :timestamp
+    :initform #'unix-time
+    :reader timestamp
+    :documentation
+    "This Function is get current scheduler time. That must based on seconds.")))
 
 (defmethod initialize-instance :after ((self scheduler) &key)
   ;;; pilep:heap include lock. so scheduler use that lock.
   (with-slots (mutex in-queue) self
-    #-ecl(setf mutex (slot-value in-queue 'pileup::lock))
-    #+ecl(setf mutex (bt:make-recursive-lock))))
+    #-ecl (setf mutex (slot-value in-queue 'pileup::lock))
+    #+ecl (setf mutex (bt:make-recursive-lock))))
 
 
 ;;; timed wait -----------------------------------------------------------------------------------------
 
 (defun condition-wait (condition-variable lock)
-  (bt:release-lock lock)
-  (unwind-protect
-       #+ccl (ccl:wait-on-semaphore condition-variable)
-    #+sbcl (sb-thread:wait-on-semaphore condition-variable)
-    #+ecl(bt-sem:wait-on-semaphore condition-variable)
-    (bt:acquire-lock lock t)))
+  #-ecl (bt:condition-wait condition-variable lock)
+  #+ecl
+  (progn
+    (bt:release-lock lock)
+    (unwind-protect (bt-sem:wait-on-semaphore condition-variable)
+      (bt:acquire-lock lock t))))
 
 (defun condition-timed-wait (condition-variable lock time)
-  (bt:release-lock lock)
-  (unwind-protect
-       #+ccl (ccl:timed-wait-on-semaphore condition-variable time)
-    #+sbcl (sb-thread:wait-on-semaphore condition-variable :timeout time)
-    #+ecl(bt-sem:wait-on-semaphore condition-variable :timeout time)
-    (bt:acquire-lock lock t)))
-
-(defmacro with-condition-lock ((scheduler) &body body)
-  `(if *in-sched* (progn ,@body)
-       (bt:with-recursive-lock-held ((mutex ,scheduler))
-	 ,@body
-	 #+ccl (ccl:signal-semaphore (condition-var ,scheduler))
-	 #+sbcl (sb-thread:signal-semaphore (condition-var ,scheduler))
-	 #+ecl(bt-sem:signal-semaphore (condition-var ,scheduler)))))
+  #+sbcl (unless (sb-thread:condition-wait condition-variable lock :timeout time)
+	   (bt:acquire-lock lock t))
+  #-sbcl
+  (progn
+    (bt:release-lock lock)
+    (unwind-protect
+	 #+ccl (ccl:timed-wait-on-semaphore condition-variable time)
+      #+ecl(bt-sem:wait-on-semaphore condition-variable :timeout time)
+      (bt:acquire-lock lock t))))
 
 ;;; -----------------------------------------------------------------------------------------------------
 
-(defvar *in-sched* nil
-  "in scheduler thread, not need grab mutex, notify signal.
- so this variable used for check to current thread == scheduler thread.")
+(defun sched-time (scheduler)
+  (funcall (timestamp scheduler)))
+
+(defun sched-quant (scheduler quantized-time &optional (offset-time 0.0d0))
+  "Return a time which quantized to given a quantized-time."
+  (let ((time (+ offset-time (sched-time scheduler))))
+    (+ time (- quantized-time (mod time quantized-time)))))
 
 (defun sched-run (scheduler)
-  (when (eql (status scheduler) :stop)
+  (when (eql (sched-status scheduler) :stop)
     (setf (sched-thread scheduler)
 	  (bt:make-thread
 	   (lambda ()
@@ -74,46 +82,49 @@
 			      (loop :while (pileup:heap-empty-p (in-queue scheduler))
 				    :do (condition-wait (condition-var scheduler) (mutex scheduler)))
 			      (loop :while (not (pileup:heap-empty-p (in-queue scheduler)))
-				    :do (let ((timestamp (node-timestamp (pileup:heap-top (in-queue scheduler)))))
-					  (when (>= 0.001 (- timestamp (now))) (return))
-					  (condition-timed-wait (condition-var scheduler) (mutex scheduler) (- timestamp (now)))))
+				    :do (let ((timeout (- (node-timestamp (pileup:heap-top (in-queue scheduler))) (sched-time scheduler))))
+					  (unless (plusp timeout) (return))
+					  (condition-timed-wait (condition-var scheduler) (mutex scheduler) timeout)))
 			      (loop :while (and (not (pileup:heap-empty-p (in-queue scheduler)))
-						(>= (now) (node-timestamp (pileup:heap-top (in-queue scheduler)))))
+						(>= (sched-time scheduler) (node-timestamp (pileup:heap-top (in-queue scheduler)))))
 				    :do (funcall (node-task (pileup:heap-pop (in-queue scheduler))))))
 			  (error (c) (format t "~&Error \"~a\" in scheduler thread~%" c)
 			    (run)))))
-	       (set-real-time-thread-priority) ;thread-boost!!
+	       (set-thread-realtime-priority) ;thread-boost!!
 	       (bt:with-lock-held ((mutex scheduler))
-		 (let ((*in-sched* t))
-		   (setf (status scheduler) :running)
-		   (sched-clear scheduler)
-		   (run)))))
-	   :name "scheduler thread"))
+		 (setf (sched-status scheduler) :running)
+		 (sched-clear scheduler)
+		 (run))))
+	   :name (format nil "~@[~a ~]scheduler thread" (sched-name scheduler))))
     :running))
 
 (defun sched-add (scheduler time f &rest args)
   "Insert task and time-info to scheduler queue. scheduler have ahead of time value(default to 0.3).
- '(- time (ahead scheduler)) is actual time it runs to f."
-  (with-condition-lock (scheduler)
-    (pileup:heap-insert (make-node :timestamp (- time (ahead scheduler))
+ '(- time (sched-ahead scheduler)) is actual time it runs to f."
+  (bt:with-recursive-lock-held ((mutex scheduler))
+    (pileup:heap-insert (make-node :timestamp (- time (sched-ahead scheduler))
 				   :task (lambda () (apply f args)))
-			(in-queue scheduler)))
+			(in-queue scheduler))
+    #-ecl (bt:condition-notify (condition-var scheduler))
+    #+ecl (bt-sem:signal-semaphore (condition-var scheduler)))
   (values))
 
 (defun sched-clear (scheduler)
   "Clear to scheduler queue."
-  (with-condition-lock (scheduler)
+  (bt:with-recursive-lock-held ((mutex scheduler))
     (let ((queue (in-queue scheduler)))
       (loop :while (not (pileup:heap-empty-p queue))
-	    :do (pileup:heap-pop queue))))
+	    :do (pileup:heap-pop queue)))
+    #-ecl (bt:condition-notify (condition-var scheduler))
+    #+ecl (bt-sem:signal-semaphore (condition-var scheduler)))
   (values))
+
 
 (defun sched-stop (scheduler)
   "Stop the scheduler."
-  (with-slots (sched-thread status) scheduler
-    (when (eql status :running)
-      (bt:destroy-thread sched-thread)
-      (setf status :stop))))
+  (when (eql (sched-status scheduler) :running)
+    (bt:destroy-thread (sched-thread scheduler))
+    (setf (sched-status scheduler) :stop)))
 
 
 
@@ -121,24 +132,27 @@
 ;;; Scheduler library have *main-scheduler*. This API are functions for only *main-scheduler*.
 ;;; Unless you needs multiple scheduler, use this API.
 
-(defparameter *main-scheduler* (make-instance 'scheduler))
-(defparameter *scheduling-mode* :realtime)
+;; (defparameter *main-scheduler* (make-instance 'scheduler :name "main"))
 
-(defun callback (time f &rest args)
-  (ecase *scheduling-mode*
-    (:realtime (sched-add *main-scheduler* time (lambda () (apply f args))) )
-    (:step (apply f args))))
+;; (defparameter *scheduling-mode* :realtime)
 
-(defun scheduler-running-p ()
-  (eql (status *main-scheduler*) :running))
+;; (defun callback (time f &rest args)
+;;   (ecase *scheduling-mode*
+;;     (:realtime (sched-add *main-scheduler* time (lambda () (apply f args))) )
+;;     (:step (apply f args))))
 
-(defun scheduler-start ()
-  (sched-run *main-scheduler*))
+;; (defun scheduler-running-p ()
+;;   (eql (sched-status *main-scheduler*) :running))
 
-(defun scheduler-clear ()
-  (sched-clear *main-scheduler*))
+;; (defun scheduler-start ()
+;;   (sched-run *main-scheduler*))
 
-(defun scheduler-stop ()
-  (sched-stop *main-scheduler*))
+;; (defun scheduler-clear ()
+;;   (sched-clear *main-scheduler*))
 
+;; (defun scheduler-stop ()
+;;   (sched-stop *main-scheduler*))
+
+;; (defun now ()
+;;   (sched-time *main-scheduler*))
 

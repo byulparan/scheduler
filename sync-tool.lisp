@@ -15,6 +15,7 @@
     (setf (sync-thread sync-tool)
 	  (bt:make-thread
 	   (lambda ()
+	     (set-thread-realtime-priority)
 	     (loop 
 	       (let* ((min-diff #x7fffFFFFffffFFFF))
 		 (dotimes (i 8)
@@ -36,7 +37,7 @@
 ;;; ---------------------------------------------------------------------
 ;;; Utility for time_sync.
 
-(defun quant (next-time)
+(defun quant (next-time &optional (cur-time (now)))
   "Return a time which quantized to given a next-time."
-  (let ((time (* 1.0d0 (floor (now)))))
+  (let ((time (* 1.0d0 (floor cur-time))))
     (+ time (- next-time (mod time next-time)))))

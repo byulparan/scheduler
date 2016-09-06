@@ -20,7 +20,7 @@
   (:sched_rr 2))
 
 
-(defun set-real-time-thread-priority ()
+(defun set-thread-realtime-priority ()
   "This function is made high priority to calling thread, and sched-policy set SCHED_RR."
   (cffi:with-foreign-objects ((param '(:pointer (:struct sched-param))))
     (cffi:with-foreign-slots ((priority dummy) param (:struct sched-param))

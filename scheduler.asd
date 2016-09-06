@@ -11,4 +11,5 @@
 	       #-windows (:file "threads-posix")
 	       (:file "time")
 	       (:file "scheduler")
-	       (:file "sync-tool"))) 
+	       ;; (:file "sync-tool")
+	       )) 

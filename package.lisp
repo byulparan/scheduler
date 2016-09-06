@@ -3,26 +3,31 @@
   (:nicknames :cb)
   (:use #:cl)
   (:export #:get-thread-priority
+	   #:set-thread-realtime-priority
 
+	   #:unix-time
+	   
 	   #:scheduler
+	   #:sched-time
+	   #:sched-quant
 	   #:sched-run
 	   #:sched-add
 	   #:sched-clear
 	   #:sched-stop
-	   #:status
-	   #:ahead
+	   #:sched-status
+	   #:sched-ahead
 	   
-	   #:*main-scheduler*
-	   #:callback
-	   #:scheduler-running-p
-	   #:scheduler-start
-	   #:scheduler-clear
-	   #:scheduler-stop
+	   ;; #:*main-scheduler*
+	   ;; #:callback
+	   ;; #:scheduler-running-p
+	   ;; #:scheduler-start
+	   ;; #:scheduler-clear
+	   ;; #:scheduler-stop
+	   ;; #:now
+	   
+	   ;; #:make-sync-tool
+	   ;; #:destroy-sync-tool
+	   ;; #:offset
 
-	   #:now
 
-	   #:make-sync-tool
-	   #:destroy-sync-tool
-	   #:offset
-
-	   #:quant))
+	   ))
