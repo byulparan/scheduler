@@ -13,6 +13,8 @@
 
 #### usage:
 
+	(in-package :scheduler)
+	
 	(defvar *scheduer* (make-instance 'scheduler :ahead ..)) ;make scheduler object
 	
 	(sched-run *scheduler*) ;start scheduler
@@ -36,17 +38,5 @@ default 'ahead time' is 0.3 seconds. so this codes are execute after 3.7 seconds
 	(callback (+ (now) 4) #'task-function args...)
 
 You can get/set to ahead value of scheduler object by **#'ahead** accessor. 
-
-#### API for main-scheduler:
-By default, this scheduler library include __\*main-scheduler\*__. This API are functions for only __\*main-scheduler\*__.  
-Unless you needs multiple scheduler, I recommend to use __\*main-scheduler\*__ with this API.
-
-	(scheduler-start) ;start the *main-scheduler*
-
-	(callback (+ (now) 4) #'task-function args...) ;insert task to queue of *main-scheduler* with time
-
-	(scheduler-clear) ; clear to queue of *main-scheduler*
-
-	(scheduler-stop) ; stop the *main-scheduler*
 
 
