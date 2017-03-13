@@ -1,6 +1,5 @@
 
 (defpackage #:scheduler
-  (:nicknames :cb)
   (:use #:cl)
   (:export #:get-thread-priority
 	   #:set-thread-realtime-priority
@@ -15,19 +14,4 @@
 	   #:sched-clear
 	   #:sched-stop
 	   #:sched-status
-	   #:sched-ahead
-	   
-	   ;; #:*main-scheduler*
-	   ;; #:callback
-	   ;; #:scheduler-running-p
-	   ;; #:scheduler-start
-	   ;; #:scheduler-clear
-	   ;; #:scheduler-stop
-	   ;; #:now
-	   
-	   ;; #:make-sync-tool
-	   ;; #:destroy-sync-tool
-	   ;; #:offset
-
-
-	   ))
+	   #:sched-ahead))
