@@ -1,7 +1,7 @@
 # Scheduler
 **The time based task scheduler for Common Lisp**
 
-#### version: 0.1.5
+#### version: 2017.3.14
 
 #### require:
   - [Quicklisp](http://www.quicklisp.org)
@@ -15,11 +15,11 @@
 
 	(in-package :scheduler)
 	
-	(defvar *scheduer* (make-instance 'scheduler :ahead ..)) ;make scheduler object
+	(defvar *scheduler* (make-instance 'scheduler :ahead ..)) ;make scheduler object
 	
 	(sched-run *scheduler*) ;start scheduler
 	
-	(sched-add *scheduler* (+ 4 (now)) #'task-function args...) ;insert task to scheduer queue with time
+	(sched-add *scheduler* (+ 4 (sched-time *scheduler*)) #'task-function args...) ;insert task to scheduer queue with time
 	
 	(sched-clear *scheduler*) ;clear to scheduler queue
 	
@@ -34,8 +34,7 @@ summary
 
 default 'ahead time' is 0.3 seconds. so this codes are execute after 3.7 seconds.
 
-	(sched-add *scheduler* (+ 4 (now)) #'task-function args...)
-	(callback (+ (now) 4) #'task-function args...)
+	(sched-add *scheduler* (+ 4 (sched-time *scheduler*)) #'task-function args...)
 
 You can get/set to ahead value of scheduler object by **#'ahead** accessor. 
 
