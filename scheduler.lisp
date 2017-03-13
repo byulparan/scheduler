@@ -124,35 +124,7 @@
   "Stop the scheduler."
   (when (eql (sched-status scheduler) :running)
     (bt:destroy-thread (sched-thread scheduler))
+    ;; when kill thread by destroy-thread then join-thread not work in sbcl
+    #-sbcl (bt:join-thread (sched-thread scheduler))
     (setf (sched-status scheduler) :stop)))
-
-
-
-;;; functions for main scheduler ---------------------------------------------------------------------
-;;; Scheduler library have *main-scheduler*. This API are functions for only *main-scheduler*.
-;;; Unless you needs multiple scheduler, use this API.
-
-;; (defparameter *main-scheduler* (make-instance 'scheduler :name "main"))
-
-;; (defparameter *scheduling-mode* :realtime)
-
-;; (defun callback (time f &rest args)
-;;   (ecase *scheduling-mode*
-;;     (:realtime (sched-add *main-scheduler* time (lambda () (apply f args))) )
-;;     (:step (apply f args))))
-
-;; (defun scheduler-running-p ()
-;;   (eql (sched-status *main-scheduler*) :running))
-
-;; (defun scheduler-start ()
-;;   (sched-run *main-scheduler*))
-
-;; (defun scheduler-clear ()
-;;   (sched-clear *main-scheduler*))
-
-;; (defun scheduler-stop ()
-;;   (sched-stop *main-scheduler*))
-
-;; (defun now ()
-;;   (sched-time *main-scheduler*))
 
