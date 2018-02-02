@@ -1,7 +1,5 @@
 # Scheduler
-**The time based task scheduler for Common Lisp**
-
-#### version: 2017.3.14
+**The time based musical event scheduler for Common Lisp**
 
 #### require:
   - [Quicklisp](http://www.quicklisp.org)

@@ -1,9 +1,8 @@
-
 (asdf:defsystem #:scheduler
   :name "scheduler"
-  :author "Park Sungmin. byulparan@icloud.com"
-  :description "The Time Based Task Scheduler"
-  :version "2017.3.14"
+  :author "Park Sungmin. byulparan@gmail.com"
+  :description "The Time Based Musical Event Scheduler"
+  :license "Apache-2.0"
   :depends-on (#:bordeaux-threads #:pileup #:cffi #+ecl #:bt-semaphore)
   :serial t
   :components ((:file "package") 
