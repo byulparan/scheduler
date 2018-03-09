@@ -1,6 +1,6 @@
 (in-package :scheduler)
 
-(defun set-real-time-thread-priority ()
+(defun set-thread-realtime-priority ()
   "Not implements windows,yet"
   (values))
 

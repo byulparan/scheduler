@@ -1,4 +1,3 @@
-
 (asdf:defsystem #:scheduler
   :name "scheduler"
   :author "Park Sungmin. byulparan@icloud.com"
@@ -7,7 +6,7 @@
   :depends-on (#:bordeaux-threads #:pileup #:cffi #+ecl #:bt-semaphore)
   :serial t
   :components ((:file "package") 
-	       #+windows (:file "threads-windows")
-	       #-windows (:file "threads-posix")
+	       (:file #-(or win32 windows mswindows) "threads-posix"
+		      #+(or win32 windows mswindows) "threads-windows")
 	       (:file "time")
-	       (:file "scheduler"))) 
+	       (:file "scheduler")))
